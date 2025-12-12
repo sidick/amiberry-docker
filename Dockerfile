@@ -54,12 +54,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-freefont-ttf \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build build/build/${AMIBERRY_TYPE} /amiberry/bin/amiberry
+COPY --from=build build/build/${AMIBERRY_TYPE} /usr/bin/amiberry
 
 COPY --from=build build/controllers /usr/share/${AMIBERRY_TYPE}/controllers
 COPY --from=build build/data /usr/share/${AMIBERRY_TYPE}/data
 COPY --from=build build/roms /usr/share/${AMIBERRY_TYPE}/roms
 COPY --from=build build/whdboot /usr/share/${AMIBERRY_TYPE}/whdboot
+COPY --chmod=755 entrypoint.sh /root
+
+VOLUME ["/amiberry"]
 
 WORKDIR /amiberry
 
@@ -67,14 +70,5 @@ RUN touch /root/.Xauthority
 
 EXPOSE 5900
 
-CMD [ "bash" ]
-# CMD sh -c "\
-#     Xvfb :0 -screen 0 1280x800x24 & \
-#     sleep 2 && \
-    # x11vnc -display :0 \
-    #        -forever \
-    #        -shared \
-    #        -nopw \
-    #        -rfbport 5900 \
-    #        -listen 0.0.0.0 \
-# "
+CMD [ "--help" ]
+ENTRYPOINT [ "/root/entrypoint.sh" ]
