@@ -31,6 +31,13 @@ if ! runuser -u amiberry -- test -f /config/.vnc/xstartup; then
     runuser -u amiberry -- tee /config/.vnc/xstartup > /dev/null <<'EOF'
 #!/bin/bash
 export PULSE_SERVER=unix:/tmp/pulse-socket
+# KasmVNC's Xvnc has no real GPU. Without these, amiberry's GUI renders
+# (plain X drawing) but Amiga emulation goes black because SDL3 picks an
+# OpenGL renderer that can't actually present frames over GLX.
+#   LIBGL_ALWAYS_SOFTWARE=1  -> Mesa libGL uses the swrast driver
+#   SDL_RENDER_DRIVER=software -> SDL3 skips GL entirely
+export LIBGL_ALWAYS_SOFTWARE=1
+export SDL_RENDER_DRIVER=software
 exec /usr/bin/amiberry
 EOF
     runuser -u amiberry -- chmod +x /config/.vnc/xstartup
