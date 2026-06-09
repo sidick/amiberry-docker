@@ -54,15 +54,28 @@ docker buildx build --platform linux/amd64,linux/arm64 -t amiberry:local .
 
 ## The config volume
 
-`/config` is the `amiberry` user's `$HOME`. amiberry creates `/config/Amiberry/`
-on first run with the usual subdirectories (`conf/`, `kickstarts/`, `floppies/`,
-`harddrives/`, `savestates/`, `screenshots/`, etc.). KasmVNC stores its config
-under `/config/.vnc/` and the user/password database at `/config/.kasmpasswd`.
+`/config` is the `amiberry` user's `$HOME`. On first run amiberry creates
+`/config/Amiberry/` with these subdirectories:
+
+| Directory | Holds |
+|---|---|
+| `Configurations/` | `.uae` config files |
+| `ROMs/` | kickstart ROMs (supply your own) |
+| `Floppies/` | `.adf` / `.adz` floppy images |
+| `HardDrives/` | HDF / directory hard drives |
+| `CDROMs/` | CD image files |
+| `LHA/` | LHA archives |
+| `SaveStates/` | savestates |
+| `Screenshots/` | captured screenshots |
+| `Visuals/` | UI themes / assets |
+
+KasmVNC stores its config under `/config/.vnc/` and the user/password
+database at `/config/.kasmpasswd`.
 
 To add ROMs / floppies from the host into a named volume, copy them in:
 
 ```sh
-docker cp ~/roms/kick13.rom amiberry:/config/Amiberry/kickstarts/
+docker cp ~/roms/kick13.rom amiberry:/config/Amiberry/ROMs/
 ```
 
 ### Bind-mount a host directory instead
@@ -99,10 +112,10 @@ need to do anything.
 
 Files you can stage into the host directory **before** the first run:
 
-- `Amiberry/kickstarts/*.rom` — kickstart ROMs
-- `Amiberry/floppies/*.adf` — floppy images
-- `Amiberry/harddrives/*.hdf` — hard files
-- `Amiberry/conf/*.uae` — pre-made amiberry config files
+- `Amiberry/ROMs/*.rom` — kickstart ROMs
+- `Amiberry/Floppies/*.adf` — floppy images
+- `Amiberry/HardDrives/*.hdf` — hard files
+- `Amiberry/Configurations/*.uae` — pre-made amiberry config files
 
 amiberry will create the rest of the `Amiberry/` subdirectories on first
 launch.
