@@ -1,0 +1,23 @@
+services:
+  amiberry:
+    build:
+      context: .
+      args:
+        AMIBERRY_VERSION: "8.1.6"
+        KASMVNC_VERSION: "1.4.0"
+    image: amiberry:local
+    container_name: amiberry
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    environment:
+      VNC_GEOMETRY: "1280x960"
+      VNC_DEPTH: "24"
+      VNC_USER: "amiberry"
+      VNC_PASSWORD: "amiberry"
+    volumes:
+      - amiberry-config:/config
+    shm_size: "512m"
+
+volumes:
+  amiberry-config:
