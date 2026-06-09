@@ -72,10 +72,22 @@ docker buildx build --platform linux/amd64,linux/arm64 -t amiberry:local .
 KasmVNC stores its config under `/config/.vnc/` and the user/password
 database at `/config/.kasmpasswd`.
 
-To add ROMs / floppies from the host into a named volume, copy them in:
+To add ROMs / floppies from the host into a named volume, copy them in
+and fix ownership (amiberry runs as UID 1000 inside the container, but
+`docker cp` writes files using the **host** user's UID — typically 501
+on macOS — which amiberry can't read):
 
 ```sh
 docker cp ~/roms/kick13.rom amiberry:/config/Amiberry/ROMs/
+docker exec -u 0 amiberry chown -R amiberry:amiberry /config/Amiberry/ROMs/
+```
+
+Or pipe the file in through an exec'd shell as the amiberry user — one
+command, correct ownership from the start:
+
+```sh
+docker exec -i -u amiberry amiberry \
+    tee /config/Amiberry/ROMs/kick13.rom < ~/roms/kick13.rom > /dev/null
 ```
 
 ### Bind-mount a host directory instead
