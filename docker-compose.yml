@@ -1,11 +1,12 @@
 services:
   amiberry:
-    build:
-      context: .
-      args:
-        AMIBERRY_VERSION: "8.1.6"
-        KASMVNC_VERSION: "1.4.0"
-    image: amiberry:local
+    image: ghcr.io/sidick/amiberry:latest
+    # To build locally from this checkout instead of pulling, uncomment:
+    # build:
+    #   context: .
+    #   args:
+    #     AMIBERRY_VERSION: "8.1.6"
+    #     KASMVNC_VERSION: "1.4.0"
     container_name: amiberry
     restart: unless-stopped
     ports:

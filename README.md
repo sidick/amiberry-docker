@@ -15,7 +15,17 @@ Builds for `linux/amd64` and `linux/arm64`.
 | KasmVNC | 1.4.0 | `.deb` from upstream release |
 | Base | `debian:trixie-slim` | |
 
-## Pull the pre-built image
+## Run
+
+### With docker compose
+
+The included `docker-compose.yml` pulls `ghcr.io/sidick/amiberry:latest`:
+
+```sh
+docker compose up -d
+```
+
+### With plain docker
 
 ```sh
 docker run --rm -it \
@@ -29,21 +39,10 @@ Multi-arch — Docker auto-picks the right variant. Then open
 <http://localhost:8443/> in a browser. Default credentials:
 `amiberry` / `amiberry` (override via `VNC_USER` / `VNC_PASSWORD`).
 
-## Build & run from source (compose)
-
-```sh
-docker compose up --build
-```
-
-## Build & run from source (plain docker)
+## Build from source
 
 ```sh
 docker build -t amiberry:local .
-docker run --rm -it \
-    -p 8443:8443 \
-    -v amiberry-config:/config \
-    --shm-size=512m \
-    amiberry:local
 ```
 
 For multi-arch:
@@ -51,6 +50,10 @@ For multi-arch:
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 -t amiberry:local .
 ```
+
+To run the local build via compose, uncomment the `build:` block in
+`docker-compose.yml` and either remove the `image:` line or point it at
+your local tag, then `docker compose up --build`.
 
 ## The config volume
 
