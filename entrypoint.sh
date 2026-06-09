@@ -7,12 +7,17 @@ set -euo pipefail
 : "${VNC_USER:=amiberry}"
 : "${VNC_PASSWORD:=amiberry}"
 
-# Clean up stale lock/PID files from previous runs. The pid file lives in the
-# persisted /config volume; if the container was killed without vncserver's
-# cleanup running, vncserver refuses to start with "A VNC server is already
-# running as :1". X server lock files in /tmp are also cleared in case
-# something (a bind-mount, host /tmp share) is preserving them.
-rm -f /config/.vnc/*.pid /tmp/.X1-lock /tmp/.X11-unix/X1
+# Clean up stale lock/PID/socket files from previous runs. The pid file lives
+# in the persisted /config volume; if the container was killed without
+# vncserver's cleanup running, vncserver refuses to start with "A VNC server
+# is already running as :1". X server lock files, X11 sockets, and pulseaudio
+# runtime state are also cleared in case the container's /tmp survived
+# (e.g. docker restart of the same container rather than a fresh one).
+rm -f /config/.vnc/*.pid
+rm -f /tmp/.X*-lock
+rm -rf /tmp/.X11-unix /tmp/pulse-runtime /tmp/pulse-socket
+mkdir -p /tmp/.X11-unix
+chmod 1777 /tmp/.X11-unix
 
 # /config is the amiberry user's HOME (set in Dockerfile useradd).
 # Make sure the volume root is owned by amiberry; everything below it
