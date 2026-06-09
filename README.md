@@ -15,16 +15,27 @@ Builds for `linux/amd64` and `linux/arm64`.
 | KasmVNC | 1.4.0 | `.deb` from upstream release |
 | Base | `debian:trixie-slim` | |
 
-## Build & run (compose)
+## Pull the pre-built image
+
+```sh
+docker run --rm -it \
+    -p 8443:8443 \
+    -v amiberry-config:/config \
+    --shm-size=512m \
+    ghcr.io/sidick/amiberry:latest
+```
+
+Multi-arch — Docker auto-picks the right variant. Then open
+<http://localhost:8443/> in a browser. Default credentials:
+`amiberry` / `amiberry` (override via `VNC_USER` / `VNC_PASSWORD`).
+
+## Build & run from source (compose)
 
 ```sh
 docker compose up --build
 ```
 
-Then open <http://localhost:8443/> in a browser. Default credentials:
-`amiberry` / `amiberry` (override via `VNC_USER` / `VNC_PASSWORD`).
-
-## Build & run (plain docker)
+## Build & run from source (plain docker)
 
 ```sh
 docker build -t amiberry:local .
