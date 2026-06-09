@@ -59,14 +59,53 @@ on first run with the usual subdirectories (`conf/`, `kickstarts/`, `floppies/`,
 `harddrives/`, `savestates/`, `screenshots/`, etc.). KasmVNC stores its config
 under `/config/.vnc/` and the user/password database at `/config/.kasmpasswd`.
 
-To add ROMs / floppies from the host, copy into the volume:
+To add ROMs / floppies from the host into a named volume, copy them in:
 
 ```sh
 docker cp ~/roms/kick13.rom amiberry:/config/Amiberry/kickstarts/
 ```
 
-…or mount a host directory in `docker-compose.yml` instead of the named
-volume.
+### Bind-mount a host directory instead
+
+If you'd rather have `/config` live in a directory you can browse and edit
+directly on the host, swap the named volume for a bind mount.
+
+With `docker run`:
+
+```sh
+mkdir -p ~/amiberry
+docker run --rm -it \
+    -p 8443:8443 \
+    -v ~/amiberry:/config \
+    --shm-size=512m \
+    ghcr.io/sidick/amiberry:latest
+```
+
+With `docker-compose.yml`, replace the `volumes:` block:
+
+```yaml
+services:
+  amiberry:
+    # ...
+    volumes:
+      - ./amiberry-data:/config   # bind mount
+    # remove the top-level `volumes: amiberry-config:` block too
+```
+
+The entrypoint runs `chown amiberry:amiberry /config` at startup, so on
+Linux your host directory's files will become owned by UID 1000. On macOS
+and Windows, Docker Desktop maps ownership transparently and you don't
+need to do anything.
+
+Files you can stage into the host directory **before** the first run:
+
+- `Amiberry/kickstarts/*.rom` — kickstart ROMs
+- `Amiberry/floppies/*.adf` — floppy images
+- `Amiberry/harddrives/*.hdf` — hard files
+- `Amiberry/conf/*.uae` — pre-made amiberry config files
+
+amiberry will create the rest of the `Amiberry/` subdirectories on first
+launch.
 
 ## Environment variables
 
