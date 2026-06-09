@@ -30,14 +30,6 @@ fi
 if ! runuser -u amiberry -- test -f /config/.vnc/xstartup; then
     runuser -u amiberry -- tee /config/.vnc/xstartup > /dev/null <<'EOF'
 #!/bin/bash
-export PULSE_SERVER=unix:/tmp/pulse-socket
-# KasmVNC's Xvnc has no real GPU. Without these, amiberry's GUI renders
-# (plain X drawing) but Amiga emulation goes black because SDL3 picks an
-# OpenGL renderer that can't actually present frames over GLX.
-#   LIBGL_ALWAYS_SOFTWARE=1  -> Mesa libGL uses the swrast driver
-#   SDL_RENDER_DRIVER=software -> SDL3 skips GL entirely
-export LIBGL_ALWAYS_SOFTWARE=1
-export SDL_RENDER_DRIVER=software
 exec /usr/bin/amiberry
 EOF
     runuser -u amiberry -- chmod +x /config/.vnc/xstartup
@@ -67,7 +59,19 @@ runuser -u amiberry -- env XDG_RUNTIME_DIR=/tmp/pulse-runtime \
         --log-target=stderr \
     || echo 'pulseaudio failed to start; continuing without audio' >&2
 
-exec runuser -u amiberry -- env XDG_RUNTIME_DIR=/tmp/pulse-runtime \
+# KasmVNC's Xvnc has no real GPU; without these the amiberry GUI renders
+# (plain X drawing) but Amiga emulation comes up black because SDL3 picks an
+# OpenGL renderer that can't present frames over GLX. Set in the entrypoint
+# (not xstartup) so the fix applies even when an old volume has a stale
+# xstartup from before this was added.
+#   LIBGL_ALWAYS_SOFTWARE=1    -> Mesa libGL uses the swrast driver
+#   SDL_RENDER_DRIVER=software -> SDL3 skips GL entirely
+exec runuser -u amiberry -- env \
+        XDG_RUNTIME_DIR=/tmp/pulse-runtime \
+        PULSE_SERVER=unix:/tmp/pulse-socket \
+        LIBGL_ALWAYS_SOFTWARE=1 \
+        SDL_RENDER_DRIVER=software \
+        AMIBERRY_NO_WM=0 \
     vncserver :1 \
         -depth "${VNC_DEPTH}" \
         -geometry "${VNC_GEOMETRY}" \
