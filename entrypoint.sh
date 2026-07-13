@@ -61,6 +61,20 @@ fi
 # Tell KasmVNC we've already chosen a desktop session (our xstartup runs amiberry directly).
 runuser -u amiberry -- touch /config/.vnc/.de-was-selected
 
+# Seed the amiberry configs from the image (see Dockerfile COPY amiberry-config/).
+# default.uae is the VNC-optimised config (A500/KS1.3, sized to fill the 1280x960
+# desktop). It is only installed if the user has no default yet, so their own
+# edits are never clobbered. vnc-default.uae is refreshed every start as a
+# pristine known-good fallback in case the main default gets overwritten.
+SEED_DIR=/opt/amiberry-seed
+if [ -f "$SEED_DIR/default.uae" ]; then
+    runuser -u amiberry -- mkdir -p /config/Amiberry/Configurations
+    if ! runuser -u amiberry -- test -f /config/Amiberry/Configurations/default.uae; then
+        runuser -u amiberry -- cp "$SEED_DIR/default.uae" /config/Amiberry/Configurations/default.uae
+    fi
+    runuser -u amiberry -- cp "$SEED_DIR/default.uae" /config/Amiberry/Configurations/vnc-default.uae
+fi
+
 if ! runuser -u amiberry -- test -f /config/.kasmpasswd; then
     printf '%s\n%s\n' "${VNC_PASSWORD}" "${VNC_PASSWORD}" \
         | runuser -u amiberry -- vncpasswd -u "${VNC_USER}" -w -r /config/.kasmpasswd

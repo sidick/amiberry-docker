@@ -66,6 +66,11 @@ RUN useradd -u 1000 -s /bin/bash -d /config -M -G ssl-cert,audio,video amiberry 
     && mkdir -p /config \
     && chown -R amiberry:amiberry /config
 
+# Seed configs copied into the image; the entrypoint installs them into the
+# /config volume on startup (default.uae only if absent; vnc-default.uae is
+# always refreshed as a pristine fallback).
+COPY amiberry-config/ /opt/amiberry-seed/
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
