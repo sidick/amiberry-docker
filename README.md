@@ -11,7 +11,7 @@ Builds for `linux/amd64` and `linux/arm64`.
 
 | | Version | Source |
 |---|---|---|
-| amiberry | 8.1.6 | `.deb` from upstream release |
+| amiberry | 8.2.2 | `.deb` from upstream release |
 | KasmVNC | 1.4.0 | `.deb` from upstream release |
 | Base | `debian:trixie-slim` | |
 
