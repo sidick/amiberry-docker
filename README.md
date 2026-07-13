@@ -17,9 +17,42 @@ Builds for `linux/amd64` and `linux/arm64`.
 
 ## Run
 
+### With the Makefile
+
+The included `Makefile` wraps the common `docker` commands. `make up`
+pulls `ghcr.io/sidick/amiberry:latest` (if needed) and starts the
+container:
+
+```sh
+make up        # create and start in the background
+make logs      # follow the logs
+make stop      # stop without removing
+make down      # stop and remove the container (keeps the config volume)
+```
+
+Run `make` (or `make help`) to list every target:
+
+| Target | Does |
+|---|---|
+| `up` | Create and start the container in the background |
+| `down` | Stop and remove the container (keeps the config volume) |
+| `start` / `stop` | Start / stop an existing container without removing it |
+| `restart` | Restart the container |
+| `pull` | Pull the latest image from the registry |
+| `build` | Build the image locally from this checkout |
+| `logs` | Follow the container logs |
+| `ps` | Show container status |
+| `shell` | Open a shell in the running container |
+| `clean` | Remove the container **and** delete the config volume |
+| `prune` | `clean` + remove the image and prune the build cache |
+
+Settings can be overridden on the command line, e.g. `make up PORT=9000`
+or `make build IMAGE=amiberry:local`.
+
 ### With docker compose
 
-The included `docker-compose.yml` pulls `ghcr.io/sidick/amiberry:latest`:
+The included `docker-compose.yml` also pulls
+`ghcr.io/sidick/amiberry:latest`:
 
 ```sh
 docker compose up -d
