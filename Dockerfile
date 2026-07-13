@@ -5,6 +5,14 @@ ARG TARGETARCH
 ARG AMIBERRY_VERSION=8.2.2
 ARG KASMVNC_VERSION=1.4.0
 
+LABEL org.opencontainers.image.title="amiberry" \
+      org.opencontainers.image.description="Amiberry Amiga emulator with KasmVNC web access" \
+      org.opencontainers.image.version="${AMIBERRY_VERSION}" \
+      org.opencontainers.image.source="https://github.com/sidick/amiberry-docker" \
+      org.opencontainers.image.url="https://github.com/sidick/amiberry-docker" \
+      org.opencontainers.image.licenses="GPL-3.0-only" \
+      org.opencontainers.image.base.name="docker.io/library/debian:trixie-slim"
+
 ENV DEBIAN_FRONTEND=noninteractive \
     HOME=/config \
     USER=amiberry \
