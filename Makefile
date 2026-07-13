@@ -1,9 +1,22 @@
-# Amiberry Docker — convenience wrapper around docker compose
-COMPOSE ?= docker compose
+# Amiberry Docker — convenience wrapper around the docker CLI
+DOCKER    ?= docker
+IMAGE     ?= ghcr.io/sidick/amiberry:latest
+NAME      ?= amiberry
+VOLUME    ?= amiberry-config
+PORT      ?= 8443
+
+# Runtime settings (mirrors the previous docker-compose.yml)
+RUN_ARGS = --name $(NAME) \
+	--restart unless-stopped \
+	-p $(PORT):8443 \
+	-e VNC_GEOMETRY=1280x960 \
+	-e VNC_DEPTH=24 \
+	-e VNC_USER=amiberry \
+	-e VNC_PASSWORD=amiberry \
+	-v $(VOLUME):/config \
+	--shm-size 512m
 
 .DEFAULT_GOAL := help
-
-IMAGE ?= ghcr.io/sidick/amiberry:latest
 
 .PHONY: help up down start stop restart pull build logs ps shell clean prune
 
@@ -11,39 +24,40 @@ help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
-up: ## Start the container in the background (pulls image if needed)
-	$(COMPOSE) up -d
+up: ## Create and start the container in the background (pulls image if needed)
+	$(DOCKER) run -d $(RUN_ARGS) $(IMAGE)
 
 down: ## Stop and remove the container (keeps the config volume)
-	$(COMPOSE) down
+	-$(DOCKER) rm -f $(NAME)
 
 start: ## Start an existing stopped container
-	$(COMPOSE) start
+	$(DOCKER) start $(NAME)
 
 stop: ## Stop the running container without removing it
-	$(COMPOSE) stop
+	$(DOCKER) stop $(NAME)
 
 restart: ## Restart the container
-	$(COMPOSE) restart
+	$(DOCKER) restart $(NAME)
 
 pull: ## Pull the latest image from the registry
-	$(COMPOSE) pull
+	$(DOCKER) pull $(IMAGE)
 
 build: ## Build the image locally from this checkout
-	$(COMPOSE) build
+	$(DOCKER) build -t $(IMAGE) .
 
 logs: ## Follow the container logs
-	$(COMPOSE) logs -f
+	$(DOCKER) logs -f $(NAME)
 
 ps: ## Show container status
-	$(COMPOSE) ps
+	$(DOCKER) ps -a --filter name=^/$(NAME)$$
 
 shell: ## Open a shell in the running container
-	$(COMPOSE) exec amiberry /bin/bash
+	$(DOCKER) exec -it $(NAME) /bin/bash
 
 clean: ## Stop, remove the container AND delete the config volume
-	$(COMPOSE) down -v
+	-$(DOCKER) rm -f $(NAME)
+	-$(DOCKER) volume rm $(VOLUME)
 
 prune: clean ## Full cleanup: clean + remove the image and prune build cache
-	-docker rmi $(IMAGE)
-	docker builder prune -f
+	-$(DOCKER) rmi $(IMAGE)
+	$(DOCKER) builder prune -f
