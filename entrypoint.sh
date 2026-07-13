@@ -82,19 +82,25 @@ runuser -u amiberry -- env XDG_RUNTIME_DIR=/tmp/pulse-runtime \
         --log-target=stderr \
     || echo 'pulseaudio failed to start; continuing without audio' >&2
 
-# KasmVNC's Xvnc has no real GPU; without these the amiberry GUI renders
-# (plain X drawing) but Amiga emulation comes up black because SDL3 picks an
-# OpenGL renderer that can't present frames over GLX. Set in the entrypoint
-# (not xstartup) so the fix applies even when an old volume has a stale
-# xstartup from before this was added.
-#   LIBGL_ALWAYS_SOFTWARE=1    -> Mesa libGL uses the swrast driver
-#   SDL_RENDER_DRIVER=software -> SDL3 skips GL entirely
+# AMIBERRY_NO_WM=1 is what stops the emulation from coming up black.
+# KasmVNC's Xvnc has no window manager. With NO_WM=0 amiberry assumes a WM
+# will map/raise its emulation window, so on Start nothing shows the window
+# and you get the black root window (the amiberry GUI still renders because
+# it draws into the already-mapped window). NO_WM=1 forces shared-window mode
+# so amiberry maps the emulation display itself. Verified: with NO_WM=1 the
+# Amiga display (e.g. Workbench 1.3) renders; with NO_WM=0 it is black,
+# independent of the GL vs software renderer. Set in the entrypoint (not
+# xstartup) so it applies even to old volumes with a stale xstartup.
+#
+# LIBGL_ALWAYS_SOFTWARE=1 / SDL_RENDER_DRIVER=software are kept as harmless
+# belt-and-suspenders (force llvmpipe), but note SDL_RENDER_DRIVER is a no-op:
+# the release .deb renders via its own OpenGL path, not SDL's renderer.
 exec runuser -u amiberry -- env \
         XDG_RUNTIME_DIR=/tmp/pulse-runtime \
         PULSE_SERVER=unix:/tmp/pulse-socket \
         LIBGL_ALWAYS_SOFTWARE=1 \
         SDL_RENDER_DRIVER=software \
-        AMIBERRY_NO_WM=0 \
+        AMIBERRY_NO_WM=1 \
     vncserver :1 \
         -depth "${VNC_DEPTH}" \
         -geometry "${VNC_GEOMETRY}" \
