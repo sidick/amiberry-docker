@@ -6,6 +6,17 @@ set -euo pipefail
 : "${VNC_PORT:=8443}"
 : "${VNC_USER:=amiberry}"
 : "${VNC_PASSWORD:=amiberry}"
+: "${AMIBERRY_LOG:=/config/amiberry.log}"
+
+# Mirror everything this entrypoint (and the vncserver/amiberry it exec's at
+# the end) writes to stdout/stderr into a logfile as well, so logs survive
+# after the container stops. `exec` with only redirections rewires this
+# shell's fds without replacing the process, so the final `exec vncserver`
+# still works and inherits the tee. tee's own stdout is the original
+# container stdout, so output goes to both places. The file is truncated
+# each start; switch `tee` to `tee -a` to append across restarts instead.
+mkdir -p "$(dirname "$AMIBERRY_LOG")"
+exec > >(tee "$AMIBERRY_LOG") 2>&1
 
 # Clean up stale lock/PID/socket files from previous runs. The pid file lives
 # in the persisted /config volume; if the container was killed without

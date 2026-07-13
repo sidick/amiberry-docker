@@ -177,6 +177,7 @@ launch.
 | `VNC_PORT` | `8443` | Browser websocket port |
 | `VNC_USER` | `amiberry` | KasmVNC username |
 | `VNC_PASSWORD` | `amiberry` | KasmVNC password (change this) |
+| `AMIBERRY_LOG` | `/config/amiberry.log` | Logfile the container output is also tee'd to (persists in the volume; truncated each start) |
 
 ## Audio
 
