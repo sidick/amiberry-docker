@@ -7,7 +7,11 @@ One Dockerfile, two published images built from a shared base:
 | Image | Emulator | Default port |
 |---|---|---|
 | `ghcr.io/sidick/amiberry` | [amiberry](https://github.com/BlitterStudio/amiberry) | 8443 |
-| `ghcr.io/sidick/copperline` | [Copperline](https://github.com/LinuxJedi/Copperline) | 8444 |
+| `ghcr.io/sidick/copperline-vnc` | [Copperline](https://github.com/LinuxJedi/Copperline) | 8444 |
+
+(The Copperline image is `copperline-vnc` because plain
+`ghcr.io/sidick/copperline` is the browser/WASM build published from the
+separate copperline-docker repo; this one is the native app over KasmVNC.)
 
 All user state — configs, kickstart ROMs, floppies, hard files, savestates —
 lives in a single named volume per emulator, mounted at `/config`.
@@ -33,7 +37,7 @@ citizens, so there is no default:
 
 ```sh
 make up APP=amiberry       # amiberry on port 8443
-make up APP=copperline     # copperline on port 8444 (they can run together)
+make up APP=copperline-vnc # copperline on port 8444 (they can run together)
 make logs APP=amiberry     # follow the logs
 make stop APP=amiberry     # stop without removing
 make down APP=amiberry     # stop and remove the container (keeps the config volume)
@@ -59,7 +63,7 @@ Run `make` (or `make help`) to list every target:
 
 Other settings can be overridden the same way, e.g.
 `make up APP=amiberry PORT=9000` or
-`make build APP=copperline IMAGE=copperline:local`.
+`make build APP=copperline-vnc IMAGE=copperline-vnc:local`.
 
 ### With docker compose
 
@@ -83,9 +87,9 @@ docker run --rm -it \
 ```sh
 docker run --rm -it \
     -p 8444:8443 \
-    -v copperline-config:/config \
+    -v copperline-vnc-config:/config \
     --shm-size=512m \
-    ghcr.io/sidick/copperline:latest
+    ghcr.io/sidick/copperline-vnc:latest
 ```
 
 Multi-arch — Docker auto-picks the right variant. Then open
@@ -97,7 +101,7 @@ the app name twice: `amiberry` / `amiberry`, `copperline` / `copperline`
 
 ```sh
 docker build --target amiberry   -t amiberry:local .
-docker build --target copperline -t copperline:local .
+docker build --target copperline-vnc -t copperline-vnc:local .
 ```
 
 (A bare `docker build .` with no `--target` builds the amiberry image.)
@@ -243,7 +247,7 @@ Images are published to GHCR two ways:
   `amiberry-v8.2.3`). Published images can therefore be newer than the
   version pins in the `Dockerfile`, which are just fallback defaults.
 - **Manually**: dispatch the "Build and push" workflow with a tag and an app
-  selection (`both` / `amiberry` / `copperline`).
+  selection (`both` / `amiberry` / `copperline-vnc`).
 
 Both routes share the same reusable build (`_build-image.yml`): native
 amd64 + arm64 runners, pushed by digest and merged into one manifest list.

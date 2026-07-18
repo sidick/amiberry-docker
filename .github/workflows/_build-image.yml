@@ -1,8 +1,8 @@
 name: _build-image
 
-# Reusable multi-arch build+push of one app image (amiberry | copperline) to
-# GHCR. Called by build-and-push.yml (manual) and upstream-release.yml (daily
-# release watcher) so the build definition lives in exactly one place.
+# Reusable multi-arch build+push of one app image (amiberry | copperline-vnc)
+# to GHCR. Called by build-and-push.yml (manual) and upstream-release.yml
+# (daily release watcher) so the build definition lives in exactly one place.
 #
 # Each platform builds natively (amd64 + arm64 runners, no QEMU — the
 # copperline cargo build would crawl under emulation), pushes by digest, and
@@ -15,7 +15,7 @@ on:
   workflow_call:
     inputs:
       app:
-        description: "App to build (amiberry | copperline) — Dockerfile target and GHCR image name"
+        description: "App to build (amiberry | copperline-vnc) — Dockerfile target and GHCR image name"
         required: true
         type: string
       tags:

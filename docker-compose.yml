@@ -21,15 +21,15 @@ services:
       - amiberry-config:/config
     shm_size: "512m"
 
-  copperline:
-    image: ghcr.io/sidick/copperline:latest
+  copperline-vnc:
+    image: ghcr.io/sidick/copperline-vnc:latest
     # build:
     #   context: .
-    #   target: copperline
+    #   target: copperline-vnc
     #   args:
     #     COPPERLINE_VERSION: "0.12.0"
     #     KASMVNC_VERSION: "1.4.0"
-    container_name: copperline
+    container_name: copperline-vnc
     restart: unless-stopped
     ports:
       - "8444:8443"
@@ -39,9 +39,9 @@ services:
       VNC_USER: "copperline"
       VNC_PASSWORD: "copperline"
     volumes:
-      - copperline-config:/config
+      - copperline-vnc-config:/config
     shm_size: "512m"
 
 volumes:
   amiberry-config:
-  copperline-config:
+  copperline-vnc-config:
