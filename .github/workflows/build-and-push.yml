@@ -14,7 +14,7 @@ on:
       app:
         description: "Which app image(s) to build"
         type: choice
-        options: [both, amiberry, copperline]
+        options: [both, amiberry, copperline-vnc]
         default: "both"
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: ${{ fromJSON(inputs.app == 'both' && '["amiberry","copperline"]' || format('["{0}"]', inputs.app)) }}
+        app: ${{ fromJSON(inputs.app == 'both' && '["amiberry","copperline-vnc"]' || format('["{0}"]', inputs.app)) }}
     permissions:
       contents: read
       packages: write

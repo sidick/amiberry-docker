@@ -2,8 +2,11 @@
 
 # Multi-app build: a shared `base` stage (KasmVNC + X + pulseaudio + generic
 # entrypoint) with one final stage per emulator, published as separate images.
-#   docker build --target amiberry   -t amiberry:local .
-#   docker build --target copperline -t copperline:local .
+#   docker build --target amiberry       -t amiberry:local .
+#   docker build --target copperline-vnc -t copperline-vnc:local .
+# (The image is named copperline-vnc because plain ghcr.io/sidick/copperline
+# is taken by the browser/WASM build published from the copperline-docker
+# repo; this one is the native app over KasmVNC.)
 # The amiberry stage is deliberately last so a bare `docker build .` still
 # produces the amiberry image, as it did before this repo went multi-app.
 
@@ -66,8 +69,8 @@ EXPOSE 8443
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 
 ########################################################################
-# copperline — built from source (upstream distributes source, Flatpak and
-# AppImage only), then dropped onto the shared base
+# copperline-vnc — Copperline built from source (upstream distributes source,
+# Flatpak and AppImage only), then dropped onto the shared base
 ########################################################################
 FROM rust:1-trixie AS copperline-build
 
@@ -83,11 +86,11 @@ RUN git clone --depth 1 --branch "v${COPPERLINE_VERSION}" \
 WORKDIR /src
 RUN cargo build --release
 
-FROM base AS copperline
+FROM base AS copperline-vnc
 
 ARG COPPERLINE_VERSION=0.12.0
 
-LABEL org.opencontainers.image.title="copperline" \
+LABEL org.opencontainers.image.title="copperline-vnc" \
       org.opencontainers.image.description="Copperline Amiga emulator with KasmVNC web access" \
       org.opencontainers.image.version="${COPPERLINE_VERSION}"
 
@@ -113,10 +116,10 @@ COPY --from=copperline-build \
     /src/assets/aros/aros-amiga-m68k-ext.bin \
     /src/assets/aros/LICENSE \
     /usr/share/copperline/aros/
-COPY apps/copperline/asound.conf /etc/asound.conf
-COPY apps/copperline/copperline.toml /opt/app-seed/copperline.toml
-COPY apps/copperline/app-init.sh /usr/local/lib/app-init.sh
-COPY apps/copperline/start-app /usr/local/bin/start-app
+COPY apps/copperline-vnc/asound.conf /etc/asound.conf
+COPY apps/copperline-vnc/copperline.toml /opt/app-seed/copperline.toml
+COPY apps/copperline-vnc/app-init.sh /usr/local/lib/app-init.sh
+COPY apps/copperline-vnc/start-app /usr/local/bin/start-app
 RUN chmod +x /usr/local/bin/start-app
 
 ########################################################################

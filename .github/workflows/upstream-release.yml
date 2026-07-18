@@ -2,7 +2,7 @@ name: Build on upstream release
 
 # Polls each upstream daily and, for any release we haven't published to GHCR
 # yet, builds and publishes it tagged X.Y.Z, X.Y and latest, then records a
-# marker release in this repo (e.g. amiberry-v8.2.3, copperline-v0.13.0)
+# marker release in this repo (e.g. amiberry-v8.2.3, copperline-vnc-v0.13.0)
 # pointing at the image. GitHub cannot deliver another repo's release events
 # to us, so this is a poll (plus manual dispatch to run it immediately).
 
@@ -67,8 +67,10 @@ jobs:
             entries+=("{\"app\":\"$app\",\"tag\":\"$tag\",\"version\":\"$ver\",\"minor\":\"${ver%.*}\",\"build_arg\":\"$arg=$ver\"}")
           }
 
-          check amiberry   BlitterStudio/amiberry AMIBERRY_VERSION   debian-trixie
-          check copperline LinuxJedi/Copperline   COPPERLINE_VERSION
+          # copperline-vnc, not copperline: plain ghcr.io/<owner>/copperline is
+          # the browser/WASM build published from the copperline-docker repo.
+          check amiberry       BlitterStudio/amiberry AMIBERRY_VERSION   debian-trixie
+          check copperline-vnc LinuxJedi/Copperline   COPPERLINE_VERSION
 
           if [ ${#entries[@]} -eq 0 ]; then
             echo "any=false" >> "$GITHUB_OUTPUT"
@@ -130,8 +132,8 @@ jobs:
           ver='${{ matrix.version }}'
           image="ghcr.io/${{ github.repository_owner }}/$app"
           case "$app" in
-            amiberry)   upstream="https://github.com/BlitterStudio/amiberry/releases/tag/${tag}" ;;
-            copperline) upstream="https://github.com/LinuxJedi/Copperline/releases/tag/${tag}" ;;
+            amiberry)       upstream="https://github.com/BlitterStudio/amiberry/releases/tag/${tag}" ;;
+            copperline-vnc) upstream="https://github.com/LinuxJedi/Copperline/releases/tag/${tag}" ;;
           esac
 
           # Idempotent: a re-run for an already-released version is a no-op.

@@ -1,29 +1,28 @@
 # Amiga emulator Docker images — convenience wrapper around the docker CLI.
 # Per-app targets require APP to be named explicitly (no default), e.g.:
-#   make up APP=amiberry       # port 8443
-#   make up APP=copperline     # port 8444
+#   make up APP=amiberry           # port 8443
+#   make up APP=copperline-vnc     # port 8444
 DOCKER    ?= docker
-APPS      := amiberry copperline
+APPS      := amiberry copperline-vnc
 IMAGE     ?= ghcr.io/sidick/$(APP):latest
 NAME      ?= $(APP)
 VOLUME    ?= $(APP)-config
 
 # Default ports don't collide, so both emulators can run side by side.
-ifeq ($(APP),copperline)
+ifeq ($(APP),copperline-vnc)
 PORT      ?= 8444
 else
 PORT      ?= 8443
 endif
 
-# Runtime settings. VNC_USER defaults to $(APP) inside the image; the
-# password defaults to the username unless overridden here.
-VNC_PASSWORD ?= $(APP)
+# Runtime settings. VNC credentials default inside the image (amiberry/
+# amiberry, copperline/copperline); set VNC_PASSWORD=... to override.
 RUN_ARGS = --name $(NAME) \
 	--restart unless-stopped \
 	-p $(PORT):8443 \
 	-e VNC_GEOMETRY=1280x960 \
 	-e VNC_DEPTH=24 \
-	-e VNC_PASSWORD=$(VNC_PASSWORD) \
+	$(if $(VNC_PASSWORD),-e VNC_PASSWORD=$(VNC_PASSWORD)) \
 	-v $(VOLUME):/config \
 	--shm-size 512m
 
@@ -34,7 +33,7 @@ RUN_ARGS = --name $(NAME) \
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '^require-app' | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
-	@echo "\nPer-app targets need APP set, e.g. 'make up APP=amiberry' or 'make up APP=copperline'"
+	@echo "\nPer-app targets need APP set, e.g. 'make up APP=amiberry' or 'make up APP=copperline-vnc'"
 
 require-app:
 	@if [ -z "$(APP)" ]; then \
@@ -70,7 +69,7 @@ build: require-app ## Build the image locally from this checkout
 
 build-all: ## Build every app image locally
 	$(MAKE) build APP=amiberry
-	$(MAKE) build APP=copperline
+	$(MAKE) build APP=copperline-vnc
 
 logs: require-app ## Follow the container logs
 	$(DOCKER) logs -f $(NAME)
