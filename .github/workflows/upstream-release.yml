@@ -1,0 +1,159 @@
+name: Build on upstream release
+
+# Polls each upstream daily and, for any release we haven't published to GHCR
+# yet, builds and publishes it tagged X.Y.Z, X.Y and latest, then records a
+# marker release in this repo (e.g. amiberry-v8.2.3, copperline-v0.13.0)
+# pointing at the image. GitHub cannot deliver another repo's release events
+# to us, so this is a poll (plus manual dispatch to run it immediately).
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency: upstream-release
+
+jobs:
+  check:
+    name: Check upstreams for new releases
+    runs-on: ubuntu-latest
+    outputs:
+      any: ${{ steps.decide.outputs.any }}
+      matrix: ${{ steps.decide.outputs.matrix }}
+    steps:
+      # Reading our own (possibly private) packages needs a login.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide what to build
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          owner='${{ github.repository_owner }}'
+          entries=()
+
+          # check <app> <upstream repo> <version build-arg> [required asset pattern]
+          # Skips when: no release, required release asset missing (e.g. the
+          # amiberry .deb naming changed), or the version is already on GHCR.
+          check() {
+            local app=$1 repo=$2 arg=$3 asset_pat=${4:-}
+            local tag ver
+            tag=$(gh api "repos/$repo/releases/latest" --jq '.tag_name // empty' 2>/dev/null || true)
+            if [ -z "$tag" ]; then
+              echo "$app: no upstream release found; skipping"
+              return
+            fi
+            ver="${tag#v}"
+            if [ -n "$asset_pat" ] && \
+               ! gh api "repos/$repo/releases/latest" --jq '.assets[].name' | grep -q "$asset_pat"; then
+              echo "$app: release $tag has no asset matching '$asset_pat'; skipping"
+              return
+            fi
+            if docker manifest inspect "ghcr.io/$owner/$app:$ver" >/dev/null 2>&1; then
+              echo "$app: ghcr.io/$owner/$app:$ver already published; nothing to do"
+              return
+            fi
+            echo "$app: will build $tag as :$ver, :${ver%.*} and :latest"
+            entries+=("{\"app\":\"$app\",\"tag\":\"$tag\",\"version\":\"$ver\",\"minor\":\"${ver%.*}\",\"build_arg\":\"$arg=$ver\"}")
+          }
+
+          check amiberry   BlitterStudio/amiberry AMIBERRY_VERSION   debian-trixie
+          check copperline LinuxJedi/Copperline   COPPERLINE_VERSION
+
+          if [ ${#entries[@]} -eq 0 ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+            printf 'matrix={"include":[%s]}\n' "$(IFS=,; echo "${entries[*]}")" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Build and push
+    needs: check
+    if: needs.check.outputs.any == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.check.outputs.matrix) }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      app: ${{ matrix.app }}
+      build_args: ${{ matrix.build_arg }}
+      tags: |
+        ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ matrix.version }}
+        ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ matrix.minor }}
+        ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:latest
+
+  # Record each published build as a GitHub release in this repo, tagged
+  # <app>-<upstream tag> (app-prefixed because two apps share one repo). The
+  # release is a marker + changelog pointing at the GHCR image (the actual
+  # artifact); it creates the git tag at the default branch's current commit.
+  release:
+    name: Create GitHub release
+    needs: [check, publish]
+    if: needs.check.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.check.outputs.matrix) }}
+    permissions:
+      contents: write
+      packages: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release for this build
+        run: |
+          set -euo pipefail
+          app='${{ matrix.app }}'
+          tag='${{ matrix.tag }}'
+          ver='${{ matrix.version }}'
+          image="ghcr.io/${{ github.repository_owner }}/$app"
+          case "$app" in
+            amiberry)   upstream="https://github.com/BlitterStudio/amiberry/releases/tag/${tag}" ;;
+            copperline) upstream="https://github.com/LinuxJedi/Copperline/releases/tag/${tag}" ;;
+          esac
+
+          # Idempotent: a re-run for an already-released version is a no-op.
+          if gh release view "${app}-${tag}" >/dev/null 2>&1; then
+            echo "Release ${app}-${tag} already exists; nothing to do."
+            exit 0
+          fi
+
+          digest=$(docker buildx imagetools inspect "$image:$ver" \
+            --format '{{json .Manifest.Digest}}' | tr -d '"')
+
+          {
+            echo "Multi-arch (linux/amd64 + linux/arm64) container image built from $app [\`$tag\`]($upstream)."
+            echo
+            echo '```'
+            echo "docker pull $image:$ver"
+            echo '```'
+            echo
+            echo "- Image: \`$image:$ver\` (also \`:${{ matrix.minor }}\` and \`:latest\`)"
+            echo "- Digest: \`$digest\`"
+            echo "- Upstream release: [$tag]($upstream)"
+          } > notes.md
+
+          gh release create "${app}-${tag}" --title "$app $tag" --notes-file notes.md
+          echo "Created release ${app}-${tag}."

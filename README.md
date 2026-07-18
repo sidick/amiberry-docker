@@ -1,9 +1,16 @@
 # docker-amiberry
 
-Containerised [amiberry](https://github.com/BlitterStudio/amiberry) Amiga
-emulator, accessed in the browser over [KasmVNC](https://github.com/kasmtech/KasmVNC)
-(display + audio in one). All user state — configs, kickstart ROMs, floppies,
-hard files, savestates — lives in a single named volume mounted at `/config`.
+Containerised Amiga emulators, accessed in the browser over
+[KasmVNC](https://github.com/kasmtech/KasmVNC) (display + audio in one).
+One Dockerfile, two published images built from a shared base:
+
+| Image | Emulator | Default port |
+|---|---|---|
+| `ghcr.io/sidick/amiberry` | [amiberry](https://github.com/BlitterStudio/amiberry) | 8443 |
+| `ghcr.io/sidick/copperline` | [Copperline](https://github.com/LinuxJedi/Copperline) | 8444 |
+
+All user state — configs, kickstart ROMs, floppies, hard files, savestates —
+lives in a single named volume per emulator, mounted at `/config`.
 
 Builds for `linux/amd64` and `linux/arm64`.
 
@@ -12,6 +19,7 @@ Builds for `linux/amd64` and `linux/arm64`.
 | | Version | Source |
 |---|---|---|
 | amiberry | 8.2.2 | `.deb` from upstream release |
+| Copperline | 0.12.0 | built from source (cargo) at the release tag |
 | KasmVNC | 1.4.0 | `.deb` from upstream release |
 | Base | `debian:trixie-slim` | |
 
@@ -19,15 +27,17 @@ Builds for `linux/amd64` and `linux/arm64`.
 
 ### With the Makefile
 
-The included `Makefile` wraps the common `docker` commands. `make up`
-pulls `ghcr.io/sidick/amiberry:latest` (if needed) and starts the
-container:
+The included `Makefile` wraps the common `docker` commands. Per-app
+targets require `APP` to be named explicitly — both emulators are equal
+citizens, so there is no default:
 
 ```sh
-make up        # create and start in the background
-make logs      # follow the logs
-make stop      # stop without removing
-make down      # stop and remove the container (keeps the config volume)
+make up APP=amiberry       # amiberry on port 8443
+make up APP=copperline     # copperline on port 8444 (they can run together)
+make logs APP=amiberry     # follow the logs
+make stop APP=amiberry     # stop without removing
+make down APP=amiberry     # stop and remove the container (keeps the config volume)
+make down                  # no APP: stop and remove every app's container
 ```
 
 Run `make` (or `make help`) to list every target:
@@ -35,27 +45,29 @@ Run `make` (or `make help`) to list every target:
 | Target | Does |
 |---|---|
 | `up` | Create and start the container in the background |
-| `down` | Stop and remove the container (keeps the config volume) |
+| `down` | Stop and remove the container (keeps the config volume); with no `APP`, downs every app |
 | `start` / `stop` | Start / stop an existing container without removing it |
 | `restart` | Restart the container |
 | `pull` | Pull the latest image from the registry |
-| `build` | Build the image locally from this checkout |
+| `build` | Build the `$(APP)` image locally from this checkout |
+| `build-all` | Build every app image locally |
 | `logs` | Follow the container logs |
 | `ps` | Show container status |
 | `shell` | Open a shell in the running container |
 | `clean` | Remove the container **and** delete the config volume |
 | `prune` | `clean` + remove the image and prune the build cache |
 
-Settings can be overridden on the command line, e.g. `make up PORT=9000`
-or `make build IMAGE=amiberry:local`.
+Other settings can be overridden the same way, e.g.
+`make up APP=amiberry PORT=9000` or
+`make build APP=copperline IMAGE=copperline:local`.
 
 ### With docker compose
 
-The included `docker-compose.yml` also pulls
-`ghcr.io/sidick/amiberry:latest`:
+The included `docker-compose.yml` defines both emulators:
 
 ```sh
-docker compose up -d
+docker compose up -d               # both
+docker compose up -d amiberry      # just one
 ```
 
 ### With plain docker
@@ -68,30 +80,48 @@ docker run --rm -it \
     ghcr.io/sidick/amiberry:latest
 ```
 
+```sh
+docker run --rm -it \
+    -p 8444:8443 \
+    -v copperline-config:/config \
+    --shm-size=512m \
+    ghcr.io/sidick/copperline:latest
+```
+
 Multi-arch — Docker auto-picks the right variant. Then open
-<http://localhost:8443/> in a browser. Default credentials:
-`amiberry` / `amiberry` (override via `VNC_USER` / `VNC_PASSWORD`).
+<http://localhost:8443/> (or 8444) in a browser. Default credentials are
+the app name twice: `amiberry` / `amiberry`, `copperline` / `copperline`
+(override via `VNC_USER` / `VNC_PASSWORD`).
 
 ## Build from source
 
 ```sh
-docker build -t amiberry:local .
+docker build --target amiberry   -t amiberry:local .
+docker build --target copperline -t copperline:local .
 ```
+
+(A bare `docker build .` with no `--target` builds the amiberry image.)
 
 For multi-arch:
 
 ```sh
-docker buildx build --platform linux/amd64,linux/arm64 -t amiberry:local .
+docker buildx build --platform linux/amd64,linux/arm64 --target amiberry -t amiberry:local .
 ```
 
-To run the local build via compose, uncomment the `build:` block in
-`docker-compose.yml` and either remove the `image:` line or point it at
-your local tag, then `docker compose up --build`.
+To run a local build via compose, uncomment the `build:` block under the
+service in `docker-compose.yml` and either remove the `image:` line or
+point it at your local tag, then `docker compose up --build`.
 
 ## The config volume
 
-`/config` is the `amiberry` user's `$HOME`. On first run amiberry creates
-`/config/Amiberry/` with these subdirectories:
+`/config` is the container user's `$HOME` (UID 1000). KasmVNC stores its
+config under `/config/.vnc/` and the user/password database at
+`/config/.kasmpasswd` in both images.
+
+### amiberry
+
+On first run amiberry creates `/config/Amiberry/` with these
+subdirectories:
 
 | Directory | Holds |
 |---|---|
@@ -105,24 +135,38 @@ your local tag, then `docker compose up --build`.
 | `Screenshots/` | captured screenshots |
 | `Visuals/` | UI themes / assets |
 
-KasmVNC stores its config under `/config/.vnc/` and the user/password
-database at `/config/.kasmpasswd`.
+A VNC-optimised `default.uae` (A500/KS1.3, sized to fill the desktop) is
+seeded on first run; a pristine copy is refreshed every start as
+`vnc-default.uae`.
+
+### Copperline
+
+Copperline runs from `/config/Copperline/` and reads
+`copperline.toml` there (a fully-commented example is seeded on first
+run). With no configuration it boots the bundled AROS ROM, so it works
+out of the box; drop your own kickstart ROMs and disk images into
+`/config/Copperline/` and reference them from the toml with relative
+paths. See the
+[Copperline configuration reference](https://github.com/LinuxJedi/Copperline)
+for all settings.
+
+### Copying files in
 
 To add ROMs / floppies from the host into a named volume, copy them in
-and fix ownership (amiberry runs as UID 1000 inside the container, but
-`docker cp` writes files using the **host** user's UID — typically 501
-on macOS — which amiberry can't read):
+and fix ownership (the emulator runs as UID 1000 inside the container,
+but `docker cp` writes files using the **host** user's UID — typically
+501 on macOS — which it can't read):
 
 ```sh
 docker cp ~/roms/kick13.rom amiberry:/config/Amiberry/ROMs/
-docker exec -u 0 amiberry chown -R amiberry:amiberry /config/Amiberry/ROMs/
+docker exec -u 0 amiberry chown -R app:app /config/Amiberry/ROMs/
 ```
 
-Or pipe the file in through an exec'd shell as the amiberry user — one
+Or pipe the file in through an exec'd shell as the container user — one
 command, correct ownership from the start:
 
 ```sh
-docker exec -i -u amiberry amiberry \
+docker exec -i -u app amiberry \
     tee /config/Amiberry/ROMs/kick13.rom < ~/roms/kick13.rom > /dev/null
 ```
 
@@ -142,7 +186,7 @@ docker run --rm -it \
     ghcr.io/sidick/amiberry:latest
 ```
 
-With `docker-compose.yml`, replace the `volumes:` block:
+With `docker-compose.yml`, replace the service's `volumes:` entry:
 
 ```yaml
 services:
@@ -150,15 +194,16 @@ services:
     # ...
     volumes:
       - ./amiberry-data:/config   # bind mount
-    # remove the top-level `volumes: amiberry-config:` block too
+    # remove the matching named volume from the top-level `volumes:` block too
 ```
 
-The entrypoint runs `chown amiberry:amiberry /config` at startup, so on
-Linux your host directory's files will become owned by UID 1000. On macOS
-and Windows, Docker Desktop maps ownership transparently and you don't
-need to do anything.
+The entrypoint runs `chown app:app /config` at startup, so on Linux your
+host directory's files will become owned by UID 1000. On macOS and
+Windows, Docker Desktop maps ownership transparently and you don't need
+to do anything.
 
-Files you can stage into the host directory **before** the first run:
+Files you can stage into the host directory **before** the first run
+(amiberry example):
 
 - `Amiberry/ROMs/*.rom` — kickstart ROMs
 - `Amiberry/Floppies/*.adf` — floppy images
@@ -166,7 +211,8 @@ Files you can stage into the host directory **before** the first run:
 - `Amiberry/Configurations/*.uae` — pre-made amiberry config files
 
 amiberry will create the rest of the `Amiberry/` subdirectories on first
-launch.
+launch. For Copperline, stage ROMs/disk images into `Copperline/` along
+with a `copperline.toml`.
 
 ## Environment variables
 
@@ -175,20 +221,50 @@ launch.
 | `VNC_GEOMETRY` | `1280x960` | KasmVNC desktop resolution |
 | `VNC_DEPTH` | `24` | Colour depth |
 | `VNC_PORT` | `8443` | Browser websocket port |
-| `VNC_USER` | `amiberry` | KasmVNC username |
-| `VNC_PASSWORD` | `amiberry` | KasmVNC password (change this) |
-| `AMIBERRY_LOG` | `/config/amiberry.log` | Logfile the container output is also tee'd to (persists in the volume; truncated each start) |
+| `VNC_USER` | app name | KasmVNC username |
+| `VNC_PASSWORD` | same as `VNC_USER` | KasmVNC password (change this) |
+| `APP_LOG` | `/config/<app>.log` | Logfile the container output is also tee'd to (persists in the volume; truncated each start). `AMIBERRY_LOG` still works as a legacy alias in the amiberry image. |
 
 ## Audio
 
 PulseAudio runs inside the container; KasmVNC streams its output to the
-browser. The first time it works depends on your browser allowing audio
-autoplay — click the speaker icon in the KasmVNC control bar if silent.
+browser. amiberry talks to it via SDL, Copperline via ALSA's pulse
+plugin (`/etc/asound.conf`). The first time it works depends on your
+browser allowing audio autoplay — click the speaker icon in the KasmVNC
+control bar if silent.
+
+## Publishing
+
+Images are published to GHCR two ways:
+
+- **Automatically**: `upstream-release.yml` polls both upstreams daily and,
+  when a new release appears, builds and publishes it tagged `X.Y.Z`, `X.Y`
+  and `latest`, recording a marker release in this repo (e.g.
+  `amiberry-v8.2.3`). Published images can therefore be newer than the
+  version pins in the `Dockerfile`, which are just fallback defaults.
+- **Manually**: dispatch the "Build and push" workflow with a tag and an app
+  selection (`both` / `amiberry` / `copperline`).
+
+Both routes share the same reusable build (`_build-image.yml`): native
+amd64 + arm64 runners, pushed by digest and merged into one manifest list.
+
+## Repo layout
+
+| Path | What |
+|---|---|
+| `Dockerfile` | Multi-stage: shared `base` + one final stage per emulator |
+| `entrypoint.sh` | Generic KasmVNC/X/pulseaudio startup, shared by all images |
+| `apps/<app>/start-app` | Launches the emulator inside the X session |
+| `apps/<app>/app-init.sh` | Per-app volume seeding + session env, sourced by the entrypoint |
+| `apps/<app>/…` | Seed configs and other app-specific files |
 
 ## Notes & caveats
 
-- amiberry **does not bundle Amiga kickstart ROMs**. You must supply your
-  own (AROS replacement ROMs are included, but won't run all software).
+- Neither emulator bundles **Amiga kickstart ROMs**. You must supply your
+  own (both include AROS replacement ROMs, but those won't run all
+  software).
 - `shm_size: 512m` matters — X servers crash without enough shm.
 - The KasmVNC default config in `/config/.vnc/kasmvnc.yaml` is generated
   on first run; edit it (or delete it to regenerate) to customise.
+- Both images render in software (no GPU passthrough): amiberry via
+  llvmpipe (OpenGL), Copperline via lavapipe (Vulkan).
