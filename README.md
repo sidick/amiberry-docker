@@ -1,4 +1,4 @@
-# docker-amiberry
+# amiga-emulation-docker
 
 Containerised Amiga emulators, accessed in the browser over
 [KasmVNC](https://github.com/kasmtech/KasmVNC) (display + audio in one).

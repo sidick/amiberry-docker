@@ -18,8 +18,8 @@ FROM debian:trixie-slim AS base
 ARG TARGETARCH
 ARG KASMVNC_VERSION=1.4.0
 
-LABEL org.opencontainers.image.source="https://github.com/sidick/amiberry-docker" \
-      org.opencontainers.image.url="https://github.com/sidick/amiberry-docker" \
+LABEL org.opencontainers.image.source="https://github.com/sidick/amiga-emulation-docker" \
+      org.opencontainers.image.url="https://github.com/sidick/amiga-emulation-docker" \
       org.opencontainers.image.licenses="GPL-3.0-only" \
       org.opencontainers.image.base.name="docker.io/library/debian:trixie-slim"
 
