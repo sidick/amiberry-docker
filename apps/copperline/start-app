@@ -1,0 +1,5 @@
+#!/bin/bash
+# Copperline looks for ./copperline.toml in its working directory, and resolves
+# relative rom/floppy paths in it from there too — so run it from the volume.
+cd /config/Copperline
+exec /usr/bin/copperline

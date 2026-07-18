@@ -1,0 +1,26 @@
+# Copperline configuration — seeded once by the container on first start,
+# then yours to edit. Everything is commented out: with no settings,
+# Copperline's built-in defaults apply (68000 @ ~7.09 MHz, OCS, PAL, and the
+# bundled AROS ROM, which boots without any files of your own).
+#
+# Paths are resolved relative to this directory (/config/Copperline inside
+# the container), so drop ROMs and disk images in here next to this file.
+# Full reference: https://github.com/LinuxJedi/Copperline
+#
+# rom = "kickstart13.rom"
+#
+# [cpu]
+# model = "68000"
+# clock_mhz = 7.09
+#
+# [memory]
+# chip = "512K"
+# fast = "0"
+# slow = "512K"
+#
+# [chipset]
+# revision = "OCS"
+# video = "PAL"
+#
+# [floppy.df0]
+# path = "game.adf"

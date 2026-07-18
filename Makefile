@@ -1,28 +1,40 @@
-# Amiberry Docker — convenience wrapper around the docker CLI
+# Amiga emulator Docker images — convenience wrapper around the docker CLI.
+# Everything is parameterised by APP (amiberry | copperline), e.g.:
+#   make up                    # amiberry on port 8443
+#   make up APP=copperline     # copperline on port 8444
 DOCKER    ?= docker
-IMAGE     ?= ghcr.io/sidick/amiberry:latest
-NAME      ?= amiberry
-VOLUME    ?= amiberry-config
-PORT      ?= 8443
+APP       ?= amiberry
+IMAGE     ?= ghcr.io/sidick/$(APP):latest
+NAME      ?= $(APP)
+VOLUME    ?= $(APP)-config
 
-# Runtime settings (mirrors the previous docker-compose.yml)
+# Default ports don't collide, so both emulators can run side by side.
+ifeq ($(APP),copperline)
+PORT      ?= 8444
+else
+PORT      ?= 8443
+endif
+
+# Runtime settings. VNC_USER defaults to $(APP) inside the image; the
+# password defaults to the username unless overridden here.
+VNC_PASSWORD ?= $(APP)
 RUN_ARGS = --name $(NAME) \
 	--restart unless-stopped \
 	-p $(PORT):8443 \
 	-e VNC_GEOMETRY=1280x960 \
 	-e VNC_DEPTH=24 \
-	-e VNC_USER=amiberry \
-	-e VNC_PASSWORD=amiberry \
+	-e VNC_PASSWORD=$(VNC_PASSWORD) \
 	-v $(VOLUME):/config \
 	--shm-size 512m
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down start stop restart pull build logs ps shell clean prune
+.PHONY: help up down start stop restart pull build build-all logs ps shell clean prune
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@echo "\nAll targets act on APP=$(APP); override with e.g. 'make up APP=copperline'"
 
 up: ## Create and start the container in the background (pulls image if needed)
 	$(DOCKER) run -d $(RUN_ARGS) $(IMAGE)
@@ -43,7 +55,11 @@ pull: ## Pull the latest image from the registry
 	$(DOCKER) pull $(IMAGE)
 
 build: ## Build the image locally from this checkout
-	$(DOCKER) build -t $(IMAGE) .
+	$(DOCKER) build --target $(APP) -t $(IMAGE) .
+
+build-all: ## Build every app image locally
+	$(MAKE) build APP=amiberry
+	$(MAKE) build APP=copperline
 
 logs: ## Follow the container logs
 	$(DOCKER) logs -f $(NAME)
