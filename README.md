@@ -27,15 +27,16 @@ Builds for `linux/amd64` and `linux/arm64`.
 
 ### With the Makefile
 
-The included `Makefile` wraps the common `docker` commands. Every target
-is parameterised by `APP` (`amiberry`, the default, or `copperline`):
+The included `Makefile` wraps the common `docker` commands. Per-app
+targets require `APP` to be named explicitly — both emulators are equal
+citizens, so there is no default:
 
 ```sh
-make up                    # amiberry on port 8443
+make up APP=amiberry       # amiberry on port 8443
 make up APP=copperline     # copperline on port 8444 (they can run together)
-make logs                  # follow the logs
-make stop                  # stop without removing
-make down                  # stop and remove the container (keeps the config volume)
+make logs APP=amiberry     # follow the logs
+make stop APP=amiberry     # stop without removing
+make down APP=amiberry     # stop and remove the container (keeps the config volume)
 ```
 
 Run `make` (or `make help`) to list every target:
@@ -55,8 +56,9 @@ Run `make` (or `make help`) to list every target:
 | `clean` | Remove the container **and** delete the config volume |
 | `prune` | `clean` + remove the image and prune the build cache |
 
-Settings can be overridden on the command line, e.g. `make up PORT=9000`
-or `make build APP=copperline IMAGE=copperline:local`.
+Other settings can be overridden the same way, e.g.
+`make up APP=amiberry PORT=9000` or
+`make build APP=copperline IMAGE=copperline:local`.
 
 ### With docker compose
 
