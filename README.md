@@ -37,6 +37,7 @@ make up APP=copperline     # copperline on port 8444 (they can run together)
 make logs APP=amiberry     # follow the logs
 make stop APP=amiberry     # stop without removing
 make down APP=amiberry     # stop and remove the container (keeps the config volume)
+make down                  # no APP: stop and remove every app's container
 ```
 
 Run `make` (or `make help`) to list every target:
@@ -44,7 +45,7 @@ Run `make` (or `make help`) to list every target:
 | Target | Does |
 |---|---|
 | `up` | Create and start the container in the background |
-| `down` | Stop and remove the container (keeps the config volume) |
+| `down` | Stop and remove the container (keeps the config volume); with no `APP`, downs every app |
 | `start` / `stop` | Start / stop an existing container without removing it |
 | `restart` | Restart the container |
 | `pull` | Pull the latest image from the registry |

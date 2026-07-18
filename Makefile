@@ -46,8 +46,12 @@ require-app:
 up: require-app ## Create and start the container in the background (pulls image if needed)
 	$(DOCKER) run -d $(RUN_ARGS) $(IMAGE)
 
-down: require-app ## Stop and remove the container (keeps the config volume)
-	-$(DOCKER) rm -f $(NAME)
+# down works without APP too: it then takes down every app's container.
+ifneq ($(APP),)
+down: require-app
+endif
+down: ## Stop and remove the container — every app's when APP is unset (keeps config volumes)
+	-$(DOCKER) rm -f $(if $(APP),$(NAME),$(APPS))
 
 start: require-app ## Start an existing stopped container
 	$(DOCKER) start $(NAME)
