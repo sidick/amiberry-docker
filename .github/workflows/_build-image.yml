@@ -1,0 +1,149 @@
+name: _build-image
+
+# Reusable multi-arch build+push of one app image (amiberry | copperline) to
+# GHCR. Called by build-and-push.yml (manual) and upstream-release.yml (daily
+# release watcher) so the build definition lives in exactly one place.
+#
+# Each platform builds natively (amd64 + arm64 runners, no QEMU — the
+# copperline cargo build would crawl under emulation), pushes by digest, and
+# the merge job stitches the digests into one manifest list per requested tag.
+#
+# To also publish to Docker Hub, have the caller add docker.io refs to `tags`
+# and add a Docker Hub login step to both jobs here.
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "App to build (amiberry | copperline) — Dockerfile target and GHCR image name"
+        required: true
+        type: string
+      tags:
+        description: "Newline-separated full image refs to push"
+        required: true
+        type: string
+      build_args:
+        description: "Newline-separated docker build args (e.g. AMIBERRY_VERSION=8.2.3)"
+        required: false
+        type: string
+        default: ""
+    outputs:
+      digest:
+        description: "Digest of the pushed multi-arch manifest list"
+        value: ${{ jobs.merge.outputs.digest }}
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive cache + artifact suffix
+        id: meta
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "pair=${{ inputs.app }}-${platform//\//-}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ inputs.app }}
+          platforms: ${{ matrix.platform }}
+          build-args: ${{ inputs.build_args }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ steps.meta.outputs.pair }}
+          cache-to: type=gha,mode=max,scope=${{ steps.meta.outputs.pair }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ steps.meta.outputs.pair }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.app }}
+      TAGS: ${{ inputs.tags }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ inputs.app }}-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        id: push
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          tag_args=()
+          while IFS= read -r t; do
+            [ -n "$t" ] && tag_args+=(-t "$t")
+          done <<< "$TAGS"
+          # shellcheck disable=SC2046 # splitting is the point: one ref per digest file
+          docker buildx imagetools create "${tag_args[@]}" \
+            $(printf "${IMAGE}@sha256:%s " *)
+          first=$(head -n1 <<< "$TAGS")
+          digest=$(docker buildx imagetools inspect "$first" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published ${{ inputs.app }}"
+            echo ''
+            echo "Platforms: linux/amd64, linux/arm64"
+            echo "Digest: \`${{ steps.push.outputs.digest }}\`"
+            echo ''
+            echo "Tags:"
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

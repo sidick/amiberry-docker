@@ -233,6 +233,21 @@ plugin (`/etc/asound.conf`). The first time it works depends on your
 browser allowing audio autoplay — click the speaker icon in the KasmVNC
 control bar if silent.
 
+## Publishing
+
+Images are published to GHCR two ways:
+
+- **Automatically**: `upstream-release.yml` polls both upstreams daily and,
+  when a new release appears, builds and publishes it tagged `X.Y.Z`, `X.Y`
+  and `latest`, recording a marker release in this repo (e.g.
+  `amiberry-v8.2.3`). Published images can therefore be newer than the
+  version pins in the `Dockerfile`, which are just fallback defaults.
+- **Manually**: dispatch the "Build and push" workflow with a tag and an app
+  selection (`both` / `amiberry` / `copperline`).
+
+Both routes share the same reusable build (`_build-image.yml`): native
+amd64 + arm64 runners, pushed by digest and merged into one manifest list.
+
 ## Repo layout
 
 | Path | What |
